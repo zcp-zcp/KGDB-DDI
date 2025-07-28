@@ -258,6 +258,8 @@ valid_file_path = ''
 test_file_path = ''
 K1 = 1
 K2 = 1
+
+flag = 0
 if args.dataset == "Drugbank":
     train_file_path = '../../Data/Drugbank/train.txt'
     valid_file_path = '../../Data/Drugbank/valid.txt'
@@ -269,6 +271,7 @@ if args.dataset == "KEGG_DRUG":
     train_file_path = '../../Data/KEGG_DRUG/train.txt'
     valid_file_path = '../../Data/KEGG_DRUG/valid.txt'
     test_file_path = '../../Data/KEGG_DRUG/test.txt'
+    flag = 1
     K1 = 1
     K2 = 1
 
@@ -281,25 +284,14 @@ model.to(device)
 criterion = nn.BCELoss(reduction='sum')
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-train_dataset = DataSet.InteractionDataset(train_file_path, output, node_map, args.dataset)
+train_dataset = DataSet.InteractionDataset(train_file_path, output, node_map, args.dataset, flag=flag)
 train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
-valid_dataset = DataSet.InteractionDataset(valid_file_path, output, node_map, args.dataset)
+valid_dataset = DataSet.InteractionDataset(valid_file_path, output, node_map, args.dataset, flag=0)
 valid_data_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False)
 
-test_dataset = DataSet.InteractionDataset(test_file_path, output, node_map, args.dataset)
+test_dataset = DataSet.InteractionDataset(test_file_path, output, node_map, args.dataset, flag=0)
 test_data_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
-
-def bootstrap_ci(y_true, y_pred, metric_func, B=2000):
-    scores = []
-    for _ in range(B):
-        indices = resample(np.arange(len(y_true)), replace=True)
-        score = metric_func(y_true[indices], y_pred[indices])
-        scores.append(score)
-    # print(scores)
-    lower = np.percentile(scores, 2.5)
-    upper = np.percentile(scores, 97.5)
-    return (lower, upper)
 
 
 def train(epoch, num_epochs, dataset):
@@ -398,24 +390,6 @@ def valid(epoch, num_epochs, dataset, best_val_accuracy):
         precision, recall, _ = precision_recall_curve(y_true, y_score)
         return auc(recall, precision)
 
-    ACC_ci = bootstrap_ci(all_true_labels, all_predicted, accuracy_score)
-    # print(f"Accuracy 95% CI: {ACC_ci}")
-
-    AUC_ci = bootstrap_ci(all_true_labels, all_outputs, roc_auc_score)
-    # print(f"AUC 95% CI: {AUC_ci}")
-
-    AUPR_ci = bootstrap_ci(all_true_labels, all_outputs, aupr_score)
-    # print(f"AUPR_ 95% CI: {AUPR_ci}")
-
-    F1_ci = bootstrap_ci(all_true_labels, all_predicted, f1_score)
-    # print(f"F1 95% CI: {F1_ci}")
-
-    precision_ci = bootstrap_ci(all_true_labels, all_predicted, precision_score)
-    # print(f"precision 95% CI: {precision_ci}")
-
-    recall_ci = bootstrap_ci(all_true_labels, all_predicted, recall_score)
-    # print(f"recall 95% CI: {recall_ci}")
-
     if accuracy > best_val_accuracy:
         best_val_accuracy = accuracy
         print(f'{epoch + 1},b {best_val_accuracy}\n')
@@ -432,8 +406,6 @@ def valid(epoch, num_epochs, dataset, best_val_accuracy):
             f'Time {current_time},Epoch [{epoch + 1}/{num_epochs}] Accuracy of the model on the valid set: {accuracy * 100:.2f}%\n')
         f.write(
             f'Epoch [{epoch + 1}/{num_epochs}]ACC: {accuracy:.4f} AUC: {auc_score:.4f} AUPR: {aupr:.4f} Precision: {precision:.4f} Recall: {recall:.4f} F1 Score: {f1:.4f}\n')
-        f.write(
-            f'Epoch [{epoch + 1}/{num_epochs}]Accuracy 95% CI: {ACC_ci} AUC 95% CI: {AUC_ci} AUPR 95% CI: {AUPR_ci} precision 95% CI: {precision_ci} recall 95% CI: {recall_ci} F1 95% CI: {F1_ci}\n')
         f.write("\n")
     return best_val_accuracy
 
@@ -494,23 +466,6 @@ def test(dataset):
         precision, recall, _ = precision_recall_curve(y_true, y_score)
         return auc(recall, precision)
 
-    ACC_ci = bootstrap_ci(all_true_labels, all_predicted, accuracy_score)
-    # print(f"Accuracy 95% CI: {ACC_ci}")
-
-    AUC_ci = bootstrap_ci(all_true_labels, all_outputs, roc_auc_score)
-    # print(f"AUC 95% CI: {AUC_ci}")
-
-    AUPR_ci = bootstrap_ci(all_true_labels, all_outputs, aupr_score)
-    # print(f"AUPR_ 95% CI: {AUPR_ci}")
-
-    F1_ci = bootstrap_ci(all_true_labels, all_predicted, f1_score)
-    # print(f"F1 95% CI: {F1_ci}")
-
-    precision_ci = bootstrap_ci(all_true_labels, all_predicted, precision_score)
-    # print(f"precision 95% CI: {precision_ci}")
-
-    recall_ci = bootstrap_ci(all_true_labels, all_predicted, recall_score)
-    # print(f"recall 95% CI: {recall_ci}")
     with open(log_save_path, 'a') as f:
         current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         if args.dataset == 'Drugbank':
@@ -521,8 +476,6 @@ def test(dataset):
             )
         f.write(f'Time {current_time}, Accuracy of the model on the test set: {accuracy * 100:.2f}%\n')
         f.write(f'ACC: {accuracy:.4f}  AUC: {auc_score:.4f}  AUPR: {aupr:.4f}  Precision: {precision:.4f}  Recall: {recall:.4f}  F1 Score: {f1:.4f}\n')
-        f.write(
-            f'Accuracy 95% CI: {ACC_ci} AUC 95% CI: {AUC_ci} AUPR 95% CI: {AUPR_ci} precision 95% CI: {precision_ci} recall 95% CI: {recall_ci} F1 95% CI: {F1_ci}\n')
         f.write("\n")
 
 

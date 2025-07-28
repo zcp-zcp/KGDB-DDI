@@ -11,7 +11,7 @@ def get_node_text_features(node, output, node_map):
         return output[idx]
 
 class InteractionDataset(Dataset):
-    def __init__(self, file_path,output, node_map,dataset):
+    def __init__(self, file_path,output, node_map, dataset,  flag):
         reduced_embeddings_dict = noise_reduction.noice_reduction_pca(dataset=dataset)
         # self.data = []
         self.labels = []
@@ -26,7 +26,7 @@ class InteractionDataset(Dataset):
                 node2_features = get_node_text_features(parts[1], output, node_map)
                 drug1_text_emb = reduced_embeddings_dict[int(parts[0])]
                 drug2_text_emb = reduced_embeddings_dict[int(parts[1])]
-                if dataset == "KEGG_DRUG":
+                if dataset == "KEGG_DRUG" and flag == 1:
                     self.node1_features.append(node1_features)
                     self.node1_features.append(node2_features)
 
