@@ -1,5 +1,5 @@
 # KGDB-DDI Repository
-
+If you require the ​RoBERTa_DDI model, please contact us via email.
 ## How to Run KGDB-DDI
 Execute one of the following commands based on your target dataset:
 
